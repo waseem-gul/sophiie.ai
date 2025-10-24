@@ -1,4 +1,5 @@
 import logging
+import httpx
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -11,13 +12,15 @@ from livekit.agents import (
     WorkerOptions,
     cli,
     metrics,
+    function_tool,
+    RunContext,
 )
 from livekit.plugins import noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 logger = logging.getLogger("agent")
 
-load_dotenv(".env.local")
+load_dotenv(".env")
 
 
 class Assistant(Agent):
@@ -46,6 +49,18 @@ class Assistant(Agent):
     #
     #     return "sunny with a temperature of 70 degrees."
 
+    @function_tool
+    async def getCurrentWeather(self, context: RunContext, location: str):
+        url = f"https://wttr.in/{location}?format=j1"
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            return response.json()
+
+    @function_tool
+    async def getForecast(self, context: RunContext, location: str):
+        return "cold with a temperature of 30 degrees."
+
 
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load()
@@ -62,13 +77,13 @@ async def entrypoint(ctx: JobContext):
     session = AgentSession(
         # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
         # See all available models at https://docs.livekit.io/agents/models/stt/
-        stt="assemblyai/universal-streaming:en",
+        stt="deepgram/nova-3:en",
         # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
         # See all available models at https://docs.livekit.io/agents/models/llm/
         llm="openai/gpt-4.1-mini",
         # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
         # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
-        tts="cartesia/sonic-2:9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
+        tts="elevenlabs/eleven_multilingual_v2:ODq5zmih8GrVes37Dizd",
         # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
         # See more at https://docs.livekit.io/agents/build/turns
         turn_detection=MultilingualModel(),
