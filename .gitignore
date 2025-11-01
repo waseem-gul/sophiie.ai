@@ -12,3 +12,4 @@ KMS
 .ruff_cache
 uv.lock
 challenge.md
+audio_lab/
